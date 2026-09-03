@@ -1,521 +1,203 @@
-"""
-Grand Task Office — Flask Backend
+"""Grand Task Office — tiny Flask bridge between Expo and local Ollama."""
 
-A minimal Flask service with one gameplay endpoint: POST /api/mission
-
-This backend:
-1. Receives game context from the Expo frontend
-2. Sends it to Ollama running locally at http://localhost:11434/api/chat
-3. Validates the response and returns structured mission JSON
-4. Falls back to hardcoded missions if Ollama is unavailable
-
-Python Learning Moment #1: HTTP requests and JSON handling
-- We'll use the `requests` library to make HTTP calls to Ollama
-- JSON parsing validates that responses are well-formed
-"""
-
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-import requests
 import json
-import sys
-from typing import Optional, Dict, Any
+import re
+from typing import Any, Dict
 
-# Initialize Flask app
+import requests
+from flask import Flask, jsonify, request
+from flask_cors import CORS
+
 app = Flask(__name__)
+CORS(app, resources={r"/api/*": {"origins": ["http://localhost:8081", "http://127.0.0.1:8081"]}})
 
-# Configure CORS for local Expo development
-# Allow requests from Expo web dev server (typically localhost:8081)
-CORS(app, resources={r"/api/*": {"origins": "localhost"}})
-
-# ============================================================================
-# Python Learning Moment #1: Constants and Configuration
-# ============================================================================
-# These are configuration values we reference throughout the app
 OLLAMA_API_URL = "http://localhost:11434/api/chat"
 OLLAMA_MODEL = "gemma3:4b"
-OLLAMA_TIMEOUT = 5  # seconds
+OLLAMA_TIMEOUT = 8
 
-# Valid item identifiers (enum-like set)
-VALID_ITEMS = {
-    "cinnamon_bun",
-    "coffee",
-    "laptop",
-    "keycard",
-    "stapler",
-    "secret_document",
+VALID_ITEMS = {"cinnamon_bun", "coffee", "laptop", "keycard", "stapler", "secret_document"}
+VALID_ZONES = {
+    "Entrance and lifts", "Open workspace", "Meeting-room corridor",
+    "Coffee and kitchen area", "Print and utility area", "Manager/drop-in office",
 }
 
-# ============================================================================
-# Python Learning Moment #2: Fallback Missions
-# ============================================================================
-# These hardcoded missions ensure the game is always playable,
-# even if Ollama is stopped, slow, or returns invalid JSON.
-# They're structured exactly like Ollama responses.
 
-FALLBACK_MISSIONS = [
-    {
-        "title": "The Coffee Emergency",
-        "situation": "Someone spilled coffee on the printer and now nothing's printing.",
-        "choices": [
-            {
-                "text": "Frantically call IT support",
-                "outcome": "IT arrives in 10 minutes. Crisis averted, but you look flustered.",
-                "moneyChange": -1,
-                "reputationChange": 0,
-                "alertChange": 1,
-                "requiredItem": None,
-                "rewardItem": None,
-            },
-            {
-                "text": "Fix it yourself with paper towels",
-                "outcome": "You expertly dry the printer. Everyone's impressed.",
-                "moneyChange": 1,
-                "reputationChange": 2,
-                "alertChange": 0,
-                "requiredItem": None,
-                "rewardItem": None,
-            },
-            {
-                "text": "Blame the intern",
-                "outcome": "The intern gets blamed. You escape notice, but it feels wrong.",
-                "moneyChange": 0,
-                "reputationChange": -2,
-                "alertChange": 1,
-                "requiredItem": None,
-                "rewardItem": None,
-            },
-        ],
-    },
-    {
-        "title": "Lunch Thief Alert",
-        "situation": "Someone keeps stealing lunches from the office fridge.",
-        "choices": [
-            {
-                "text": "Set a trap with a decoy sandwich",
-                "outcome": "You catch the culprit red-handed. Office mystery solved!",
-                "moneyChange": 2,
-                "reputationChange": 1,
-                "alertChange": 0,
-                "requiredItem": None,
-                "rewardItem": None,
-            },
-            {
-                "text": "Leave an angry note",
-                "outcome": "The lunches stop disappearing, but tensions are high.",
-                "moneyChange": 0,
-                "reputationChange": -1,
-                "alertChange": 1,
-                "requiredItem": None,
-                "rewardItem": None,
-            },
-            {
-                "text": "Ignore it and eat at your desk",
-                "outcome": "Not your problem. You enjoy your sandwich in peace.",
-                "moneyChange": 0,
-                "reputationChange": 0,
-                "alertChange": 0,
-                "requiredItem": None,
-                "rewardItem": None,
-            },
-        ],
-    },
-    {
-        "title": "Mysterious Meeting Room Key",
-        "situation": "A brass key appears on your desk with no explanation.",
-        "choices": [
-            {
-                "text": "Turn it in to lost and found",
-                "outcome": "Good deed done. The office runs smoother.",
-                "moneyChange": 0,
-                "reputationChange": 1,
-                "alertChange": 0,
-                "requiredItem": None,
-                "rewardItem": None,
-            },
-            {
-                "text": "Investigate where it leads",
-                "outcome": "You unlock a hidden supply closet full of rare office supplies.",
-                "moneyChange": 2,
-                "reputationChange": 1,
-                "alertChange": 0,
-                "requiredItem": None,
-                "rewardItem": "keycard",
-            },
-            {
-                "text": "Sell it online",
-                "outcome": "You make a quick buck, but someone's angry.",
-                "moneyChange": 1,
-                "reputationChange": -1,
-                "alertChange": 1,
-                "requiredItem": None,
-                "rewardItem": None,
-            },
-        ],
-    },
-]
+def choice(text, outcome, money=0, reputation=0, alert=0, required=None, reward=None):
+    """Python learning: one helper keeps every fallback in the same JSON shape."""
+    return {
+        "text": text, "outcome": outcome, "moneyChange": money,
+        "reputationChange": reputation, "alertChange": alert,
+        "requiredItem": required, "rewardItem": reward,
+    }
 
 
-# ============================================================================
-# Python Learning Moment #3: Helper Function for Ollama Connection
-# ============================================================================
+FALLBACKS = {
+    "normal": {
+        "title": "Operation Paper Jam",
+        "situation": "The printer flashes an error code that looks surprisingly judgmental.",
+        "choices": [
+            choice("Repair it with office engineering", "It works, although nobody understands why.", reputation=1, reward="stapler"),
+            choice("Print 300 decoy documents", "The office disappears beneath tactical paperwork.", money=-1, reputation=-1, alert=1),
+            choice("Walk away confidently", "Confidence remains the cheapest disguise.", money=1),
+        ],
+    },
+    "boss": {
+        "title": "Boss Encounter",
+        "situation": "The Boss rounds the corner. There is nowhere to hide except inside your confidence.",
+        "bossMessage": "I knew someone was hiding near the printer.",
+        "choices": [
+            choice("Announce an urgent fire drill", "The Boss checks the calendar. You gain six seconds.", reputation=-1),
+            choice("Offer emergency coffee", "The Boss accepts it and briefly forgets your face.", reputation=1, alert=-1, required="coffee"),
+            choice("Sprint behind the photocopier", "Fast, loud and technically successful.", money=-1, alert=1),
+        ],
+    },
+    "keycard": {
+        "title": "Keycard in Conference",
+        "situation": "A forgotten visitor badge glows beneath a meeting-room chair.",
+        "choices": [
+            choice("Slide under the table and take it", "A graceful tactical roll earns you the keycard.", reward="keycard"),
+            choice("Wait for the room to clear", "You wait too long and security collects it."),
+            choice("Ask whether anyone lost a badge", "Honest, admirable and terrible for this heist.", reputation=1),
+        ],
+    },
+    "document": {
+        "title": "The Secret Document",
+        "situation": "The keycard opens the office. A sealed folder waits beneath the keyboard.",
+        "choices": [
+            choice("Swap it for a decoy folder", "The secret document slides into your coat.", money=2, reward="secret_document"),
+            choice("Photograph the desk instead", "The flash is loud. You leave empty-handed.", money=1, alert=1),
+            choice("Read the executive summary", "It says: Never trust the printer.", reputation=1),
+        ],
+    },
+}
+
+
 def test_ollama_connection() -> bool:
-    """
-    Test if Ollama is running and the model is available.
-    
-    This function makes a GET request to Ollama's /api/tags endpoint,
-    which lists all available models.
-    
-    Returns:
-        bool: True if Ollama is reachable and gemma3:4b is available, False otherwise.
-    
-    Python concept: try/except for error handling
-    """
+    """Python learning: network failures become False instead of crashing the game."""
     try:
-        response = requests.get(
-            "http://localhost:11434/api/tags",
-            timeout=2,  # Quick timeout for connection test
-        )
-        if response.status_code == 200:
-            data = response.json()
-            # Check if gemma3:4b is in the models list
-            models = [m["name"] for m in data.get("models", [])]
-            return OLLAMA_MODEL in models
-    except (requests.ConnectionError, requests.Timeout, json.JSONDecodeError):
-        pass
-    return False
+        response = requests.get("http://localhost:11434/api/tags", timeout=2)
+        models = [model.get("name") for model in response.json().get("models", [])] if response.ok else []
+        return OLLAMA_MODEL in models
+    except (requests.RequestException, ValueError):
+        return False
 
 
-# ============================================================================
-# Python Learning Moment #4: Response Validation
-# ============================================================================
-def validate_mission_response(data: Dict[str, Any]) -> tuple[bool, str]:
-    """
-    Validate that a mission response has the correct structure and values.
-    
-    A valid mission must have:
-    - title: non-empty string, ≤80 chars
-    - situation: non-empty string, ≤300 chars
-    - choices: exactly 3 choices
-    - Each choice must have required fields with valid values
-    
-    Args:
-        data: The JSON data to validate (from Ollama)
-    
-    Returns:
-        tuple: (is_valid, error_message)
-    
-    Python concepts:
-    - Type hints (Dict, Any, tuple)
-    - String validation and length checks
-    - Enum membership (checking item IDs)
-    - List length validation
-    """
-    # Check required top-level fields
+def select_fallback(context: Dict[str, Any]) -> Dict[str, Any]:
+    inventory = context.get("inventory", [])
+    if context.get("bossEncounter") is True:
+        return FALLBACKS["boss"]
+    if context.get("location") == "Meeting-room corridor" and "keycard" not in inventory:
+        return FALLBACKS["keycard"]
+    if context.get("location") == "Manager/drop-in office" and "secret_document" not in inventory:
+        return FALLBACKS["document"]
+    return FALLBACKS["normal"]
+
+
+def validate_context(data: Any) -> tuple[bool, str]:
     if not isinstance(data, dict):
-        return False, "Response is not a dictionary"
-
-    if "title" not in data or not isinstance(data["title"], str):
-        return False, "Missing or invalid 'title'"
-    if len(data["title"]) == 0 or len(data["title"]) > 80:
-        return False, "Title must be 1-80 characters"
-
-    if "situation" not in data or not isinstance(data["situation"], str):
-        return False, "Missing or invalid 'situation'"
-    if len(data["situation"]) == 0 or len(data["situation"]) > 300:
-        return False, "Situation must be 1-300 characters"
-
-    if "choices" not in data or not isinstance(data["choices"], list):
-        return False, "Missing or invalid 'choices' (must be array)"
-    if len(data["choices"]) != 3:
-        return False, f"Expected exactly 3 choices, got {len(data['choices'])}"
-
-    # Validate each choice
-    for i, choice in enumerate(data["choices"]):
-        if not isinstance(choice, dict):
-            return False, f"Choice {i} is not a dictionary"
-
-        # Required string fields
-        for field in ["text", "outcome"]:
-            if field not in choice or not isinstance(choice[field], str):
-                return False, f"Choice {i}: missing or invalid '{field}'"
-            if len(choice[field]) == 0:
-                return False, f"Choice {i}: '{field}' cannot be empty"
-            if field == "text" and len(choice[field]) > 100:
-                return False, f"Choice {i}: text must be ≤100 chars"
-            if field == "outcome" and len(choice[field]) > 200:
-                return False, f"Choice {i}: outcome must be ≤200 chars"
-
-        # Required numeric fields (clamp to -2...+2)
-        for field in ["moneyChange", "reputationChange", "alertChange"]:
-            if field not in choice or not isinstance(choice[field], (int, float)):
-                return False, f"Choice {i}: missing or invalid '{field}' (must be number)"
-            # Clamp the value
-            value = int(choice[field])
-            if value < -2 or value > 2:
-                choice[field] = max(-2, min(2, value))
-
-        # Optional item fields
-        for field in ["requiredItem", "rewardItem"]:
-            if field not in choice:
-                choice[field] = None
-            elif choice[field] is not None:
-                if not isinstance(choice[field], str):
-                    return False, f"Choice {i}: '{field}' must be string or null"
-                if choice[field] not in VALID_ITEMS:
-                    # Ignore unknown items safely
-                    choice[field] = None
-
-        # Validate: a choice cannot both require and reward an item
-        if choice.get("requiredItem") and choice.get("rewardItem"):
-            return False, f"Choice {i}: cannot both require and reward an item"
-
+        return False, "Request body must be a JSON object"
+    if data.get("location") not in VALID_ZONES:
+        return False, "Unknown office location"
+    if not isinstance(data.get("playerName", "Rookie"), str):
+        return False, "playerName must be text"
+    if not isinstance(data.get("inventory", []), list):
+        return False, "inventory must be an array"
     return True, ""
 
 
-# ============================================================================
-# API ENDPOINT: POST /api/mission
-# ============================================================================
-@app.route("/api/mission", methods=["POST"])
-def get_mission():
-    """
-    Main gameplay endpoint.
-    
-    Receives: Game context (location, round, stats, inventory, players)
-    Returns: Mission with title, situation, and 3 choices
-    
-    If Ollama is available, generates a new mission.
-    If Ollama is unavailable, returns a hardcoded fallback mission.
-    
-    Python Learning Moment #5: Request/Response Handling
-    - request.json: Parse incoming JSON
-    - jsonify: Convert Python dict to Flask JSON response
-    - HTTP status codes (200, 400, 500)
-    """
+def validate_mission(data: Any) -> tuple[bool, str]:
+    """Validate and clamp AI output before the frontend sees it."""
+    if not isinstance(data, dict):
+        return False, "Mission must be an object"
+    for field, maximum in (("title", 80), ("situation", 300)):
+        if not isinstance(data.get(field), str) or not data[field].strip() or len(data[field]) > maximum:
+            return False, f"Invalid {field}"
+    if "bossMessage" in data and (not isinstance(data["bossMessage"], str) or len(data["bossMessage"]) > 160):
+        return False, "Invalid bossMessage"
+    if not isinstance(data.get("choices"), list) or len(data["choices"]) != 3:
+        return False, "Mission requires exactly three choices"
+    for index, item in enumerate(data["choices"]):
+        if not isinstance(item, dict):
+            return False, f"Choice {index} must be an object"
+        if not isinstance(item.get("text"), str) or not isinstance(item.get("outcome"), str):
+            return False, f"Choice {index} needs text and outcome"
+        for field in ("moneyChange", "reputationChange", "alertChange"):
+            if not isinstance(item.get(field), (int, float)):
+                return False, f"Choice {index} has invalid {field}"
+            item[field] = max(-2, min(2, int(item[field])))
+        for field in ("requiredItem", "rewardItem"):
+            value = item.get(field)
+            item[field] = value if value in VALID_ITEMS else None
+        if item["requiredItem"] and item["rewardItem"]:
+            return False, f"Choice {index} cannot require and reward an item"
+    return True, ""
+
+
+def extract_json(text: str) -> Any:
     try:
-        # Parse incoming game context
-        game_context = request.json
+        return json.loads(text)
+    except json.JSONDecodeError:
+        match = re.search(r"\{.*\}", text, re.DOTALL)
+        return json.loads(match.group(0)) if match else None
 
-        if not game_context:
-            return (
-                jsonify({"error": "No JSON body provided"}),
-                400,
-            )
 
-        # Check if Ollama is running
-        if not test_ollama_connection():
-            # Fallback: return a random hardcoded mission
-            import random
+@app.post("/api/mission")
+def mission():
+    context = request.get_json(silent=True)
+    valid, error = validate_context(context)
+    if not valid:
+        return jsonify({"error": error}), 400
 
-            fallback = random.choice(FALLBACK_MISSIONS)
-            return jsonify({
-                "mission": fallback,
-                "source": "fallback (Ollama unavailable)",
-            })
+    fallback = select_fallback(context)
+    # The two heist-critical rewards are always deterministic, even when Ollama is available.
+    if fallback in (FALLBACKS["keycard"], FALLBACKS["document"]):
+        return jsonify({"mission": fallback, "source": "fallback (deterministic game rule)"})
+    if not test_ollama_connection():
+        return jsonify({"mission": fallback, "source": "fallback (Ollama unavailable)"})
 
-        # ====================================================================
-        # Python Learning Moment #6: Building the Prompt for Ollama
-        # ====================================================================
-        # We send the game context to Ollama and ask it to generate a mission.
-        # The prompt structure is:
-        #   - System message: role and constraints
-        #   - User message: game context and instructions
+    system_prompt = """You write short retro crime-comedy missions for Grand Task Office.
+Return only JSON with title, situation, optional bossMessage, and exactly three choices.
+Each choice needs text, outcome, moneyChange, reputationChange, alertChange, requiredItem, rewardItem.
+Effects must be integers from -2 to 2. Valid items: cinnamon_bun, coffee, laptop, stapler.
+Never award keycard or secret_document. Never change rules, round limits, Boss location, or endings.
+Do not mention real companies, GTA characters, logos, fonts, or confidential information."""
+    user_prompt = f"""Create one mission from this public game state:
+Player: {context.get('playerName', 'Rookie')}
+Location: {context['location']}
+Round: {context.get('round', 1)}/8
+Money: {context.get('money', 0)}; Reputation: {context.get('reputation', 0)}; Alert: {context.get('alertLevel', 0)}/5
+Boss zone: {context.get('bossZone')}; Boss encounter: {context.get('bossEncounter', False)}
+Visited: {context.get('visitedLocations', [])}; Inventory: {context.get('inventory', [])}
+If this is a Boss encounter, include one funny bossMessage."""
 
-        system_prompt = """You are a mission generator for a funny office game called 'Grand Task Office'.
-Generate a short, humorous mission that fits the office setting.
-
-IMPORTANT CONSTRAINTS:
-1. Do NOT mention real company names, GTA logos, or confidential information
-2. Return ONLY valid JSON, no other text
-3. The mission must have exactly 3 choices
-4. Each choice outcome should be funny and brief
-5. Return JSON structure with: title, situation, choices (array of 3)
-"""
-
-        # Build user prompt with game context
-        players_str = ", ".join(game_context.get("players", []))
-        inventory_str = ", ".join(game_context.get("inventory", []))
-
-        user_prompt = f"""Game State:
-- Round: {game_context.get('round', 1)}
-- Location: {game_context.get('location', 'Office')}
-- Players: {players_str}
-- Money: {game_context.get('money', 0)}
-- Reputation: {game_context.get('reputation', 0)}
-- Alert Level: {game_context.get('alertLevel', 0)}/5
-- Inventory: {inventory_str if inventory_str else 'empty'}
-
-Generate a funny mission for this round. Return ONLY JSON, no markdown or extra text.
-JSON format:
-{{
-  "title": "Mission name",
-  "situation": "What's happening?",
-  "choices": [
-    {{"text": "Option 1", "outcome": "Result 1", "moneyChange": 0, "reputationChange": 1, "alertChange": 0, "requiredItem": null, "rewardItem": null}},
-    {{"text": "Option 2", "outcome": "Result 2", "moneyChange": 1, "reputationChange": 0, "alertChange": 0, "requiredItem": null, "rewardItem": null}},
-    {{"text": "Option 3", "outcome": "Result 3", "moneyChange": 0, "reputationChange": -1, "alertChange": 1, "requiredItem": null, "rewardItem": "coffee"}}
-  ]
-}}
-"""
-
-        # Make request to Ollama
-        ollama_request = {
+    try:
+        response = requests.post(OLLAMA_API_URL, json={
             "model": OLLAMA_MODEL,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
+            "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
             "stream": False,
-        }
-
-        response = requests.post(
-            OLLAMA_API_URL,
-            json=ollama_request,
-            timeout=OLLAMA_TIMEOUT,
-        )
-
-        if response.status_code != 200:
-            raise Exception(f"Ollama returned status {response.status_code}")
-
-        # Parse Ollama response
-        ollama_data = response.json()
-        mission_text = ollama_data.get("message", {}).get("content", "")
-
-        # Extract JSON from response (Ollama might include extra text)
-        # Try to parse the content as JSON
-        mission_json = None
-        try:
-            # Try direct parse first
-            mission_json = json.loads(mission_text)
-        except json.JSONDecodeError:
-            # Try extracting JSON from markdown code blocks or extra text
-            import re
-            json_match = re.search(r"\{.*\}", mission_text, re.DOTALL)
-            if json_match:
-                try:
-                    mission_json = json.loads(json_match.group())
-                except json.JSONDecodeError:
-                    pass
-
-        if not mission_json:
-            raise Exception("Could not parse mission JSON from Ollama response")
-
-        # Validate the mission
-        is_valid, error_msg = validate_mission_response(mission_json)
-        if not is_valid:
-            print(f"Validation failed: {error_msg}", file=sys.stderr)
-            raise Exception(f"Mission validation failed: {error_msg}")
-
-        return jsonify({
-            "mission": mission_json,
-            "source": "ollama",
-        })
-
-    except requests.Timeout:
-        print("Ollama request timed out", file=sys.stderr)
-        import random
-        fallback = random.choice(FALLBACK_MISSIONS)
-        return jsonify({
-            "mission": fallback,
-            "source": "fallback (timeout)",
-        })
-    except Exception as e:
-        print(f"Error in /api/mission: {str(e)}", file=sys.stderr)
-        import random
-        fallback = random.choice(FALLBACK_MISSIONS)
-        return jsonify({
-            "mission": fallback,
-            "source": f"fallback (error: {str(e)})",
-        })
+            "format": "json",
+        }, timeout=OLLAMA_TIMEOUT)
+        response.raise_for_status()
+        generated = extract_json(response.json().get("message", {}).get("content", ""))
+        valid, error = validate_mission(generated)
+        if not valid:
+            return jsonify({"mission": fallback, "source": f"fallback (invalid AI response: {error})"})
+        return jsonify({"mission": generated, "source": "ollama"})
+    except (requests.RequestException, ValueError, TypeError, json.JSONDecodeError) as exc:
+        return jsonify({"mission": fallback, "source": f"fallback ({type(exc).__name__})"})
 
 
-# ============================================================================
-# HEALTH CHECK ENDPOINT
-# ============================================================================
-@app.route("/health", methods=["GET"])
+@app.get("/health")
 def health():
-    """
-    Simple health check endpoint.
-    
-    Returns:
-        JSON with status and Ollama connection status
-    """
-    ollama_available = test_ollama_connection()
-    return jsonify({
-        "status": "ok",
-        "ollama_available": ollama_available,
-        "ollama_url": OLLAMA_API_URL,
-        "ollama_model": OLLAMA_MODEL,
-    })
+    return jsonify({"status": "ok", "ollama_available": test_ollama_connection(), "ollama_url": OLLAMA_API_URL, "ollama_model": OLLAMA_MODEL})
 
 
-# ============================================================================
-# OLLAMA TEST ENDPOINT
-# ============================================================================
-@app.route("/test-ollama", methods=["GET"])
+@app.get("/test-ollama")
 def test_ollama():
-    """
-    Test endpoint to check Ollama connection and model availability.
-    
-    Useful for debugging during development.
-    
-    Returns:
-        JSON with connection status and available models
-    """
-    try:
-        response = requests.get(
-            "http://localhost:11434/api/tags",
-            timeout=2,
-        )
-        if response.status_code == 200:
-            data = response.json()
-            return jsonify({
-                "status": "connected",
-                "models": [m["name"] for m in data.get("models", [])],
-                "gemma3_4b_available": OLLAMA_MODEL in [m["name"] for m in data.get("models", [])],
-            })
-        else:
-            return (
-                jsonify({
-                    "status": "error",
-                    "message": f"Ollama returned status {response.status_code}",
-                }),
-                500,
-            )
-    except Exception as e:
-        return (
-            jsonify({
-                "status": "error",
-                "message": str(e),
-            }),
-            500,
-        )
+    return jsonify({"status": "connected" if test_ollama_connection() else "unavailable", "model": OLLAMA_MODEL})
 
 
-# ============================================================================
-# Main Entry Point
-# ============================================================================
 if __name__ == "__main__":
-    print("=" * 70)
-    print("Grand Task Office — Flask Backend")
-    print("=" * 70)
-    print(f"Ollama URL: {OLLAMA_API_URL}")
-    print(f"Model: {OLLAMA_MODEL}")
-    print(f"Timeout: {OLLAMA_TIMEOUT}s")
-    print()
-    
-    # Test Ollama connection on startup
-    if test_ollama_connection():
-        print("✅ Ollama is connected and gemma3:4b is available")
-    else:
-        print("⚠️  Ollama is not reachable. Missions will use fallbacks.")
-    
-    print()
-    print("Starting Flask server on http://localhost:5000")
-    print("=" * 70)
-    print()
-    
-    # Run Flask app
-    # debug=True enables auto-reload and better error messages
-    # host='0.0.0.0' allows connections from other machines (needed for Expo)
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    print("Grand Task Office backend: http://localhost:5001")
+    print("Ollama connected" if test_ollama_connection() else "Ollama unavailable — fallback missions enabled")
+    app.run(debug=True, host="0.0.0.0", port=5001)

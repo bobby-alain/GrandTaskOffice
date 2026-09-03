@@ -1,57 +1,27 @@
 # Grand Task Office — Presentation Progress
 
-## Steps completed
+## What I did with AI
 
-1. **Started with an idea**  
-   I received an individual challenge to create a small, fun game using as much AI assistance as possible. The other participants are each building their own separate game.
+1. **Started with an individual challenge** — Everyone in the workshop is building a separate game. This project is mine, built by me in collaboration with AI.
+2. **Planned by conversation** — I used Codex to brainstorm, compare ideas, choose the name **Grand Task Office**, define the rules, and create the Markdown plan. I frequently used the microphone instead of typing so I could refine ideas naturally.
+3. **Chose the stack** — With AI guidance, I changed the frontend from ordinary React to Expo, React Native, TypeScript, and Expo Router. I kept a tiny Python Flask backend and local Ollama model.
+4. **Installed local AI** — I installed Ollama and downloaded `gemma3:4b`, allowing the finished game to create missions without an online API key.
+5. **Created visual references and assets** — I supplied an office plan and location photographs. AI image generation turned them into an original retro crime-comedy title screen, office map, and item artwork.
+6. **Built Step 1 with GitHub Copilot** — Copilot scaffolded the Expo frontend, Flask backend, virtual environment, launcher scripts, validation, fallbacks, and learning comments. This foundation was saved separately in Git as commit `6141d05`.
+7. **Reviewed the first playable version** — The first Step 2 attempt looked like a plain 4–6-player form and list. I used screenshots and microphone feedback to explain that I wanted one player against the computer and a much richer retro game interface.
+8. **Redesigned the game with Codex** — Together we converted the concept into a single-player heist: find the keycard, steal the document, dodge a patrolling Boss, and escape before five alert stars or eight rounds.
+9. **Implemented the redesigned Step 2** — AI refactored the reducer, integrated the generated graphics, cropped the item sprite sheet, created map hotspots and large arcade controls, added the Boss opponent and three endings, updated Flask/Ollama, and kept complete offline fallbacks.
+10. **Validated the result** — TypeScript, Expo Web export, Python syntax, API fallback routes, deterministic patrol, progression, endings, and restart are checked before presentation.
 
-2. **Planned the game with Codex**  
-   I used Codex as my planning partner. I described my ideas, asked questions, compared suggestions, and refined the project through several short discussions. I frequently used microphone input to speak naturally to the AI instead of typing every prompt.
+## How the AI roles fit together
 
-3. **Chose the game concept**  
-   With AI assistance, I named the game **Grand Task Office** and defined it as a GTA-inspired office comedy with missions, choices, alert stars, collectible objects, achievements, and a secret room.
+- **Microphone:** fast natural-language direction and design feedback
+- **Codex:** planning, implementation, debugging, testing, and documentation
+- **Image generation:** original environment and item artwork based on supplied references
+- **GitHub Copilot:** initial project scaffold and learning-oriented code generation
+- **Ollama + gemma3:4b:** local runtime dialogue and mission flavour
+- **My role:** creative direction, decisions, source material, review, testing, and acceptance
 
-4. **Chose the technology**  
-   I initially selected React and React hooks, then changed the frontend to **Expo with React Native and TypeScript** so I could learn mobile-style development while still demonstrating the game in a laptop browser. I kept the very small Python Flask backend and Ollama for local AI.
+## Short presentation version
 
-5. **Installed the local AI model**  
-   I installed Ollama and downloaded `gemma3:4b`. The local model will generate missions automatically without an online API key.
-
-6. **Collected visual references**  
-   I gathered an office floor plan and building and meeting-room photos. AI image generation will use them as references for an original, simplified comic-style map.
-
-7. **Created the project plan**  
-   I worked with Codex to document the game rules, architecture, graphics, AI integration, implementation steps, and tests in a Markdown file.
-
-8. **Created the project folder**  
-   I created `Desktop/GrandTaskOffice` and placed the project plan inside it.
-
-9. **Handed the plan to GitHub Copilot**  
-   I gave GitHub Copilot the Markdown plan as the project specification. Copilot analyzed it and produced a six-step implementation roadmap covering the foundation, playable game, local AI missions, map and visuals, items and features, and final verification. It also identified response validation as the main technical risk and kept fallback missions in the roadmap.
-
-10. **Refined the frontend plan with AI**  
-    After discussing the workshop goal with Codex, I chose Expo's default TypeScript template and Expo Router. The game will use React Native core components and built-in animation instead of a large UI library. Expo Web will be the main laptop demo, with the same project remaining compatible with iOS and Android.
-
-11. **Completed Step 1 with GitHub Copilot**  
-    I asked Copilot to build the foundation from the updated Markdown plan. It scaffolded an Expo SDK 57 frontend with React Native, TypeScript, and Expo Router, and installed its dependencies. It also created a Python Flask backend with `/health`, `/test-ollama`, and `POST /api/mission`, including response validation, three fallback missions, and six commented Python learning moments. Copilot created the virtual environment, launcher scripts for both services, a setup guide, and a foundation summary. Flask runs on port `5000` and Expo Web runs on port `8081`.
-
-    This step demonstrated that an AI coding assistant could turn my natural-language plan into a working project structure, backend API, development scripts, and documentation while also explaining the generated Python code.
-
-## Next step
-
-12. **Build Step 2: Playable Game with GitHub Copilot**  
-    I will ask Copilot to replace the Expo example routes with the five game screens, add the shared game reducer and player setup, integrate fixed sample missions, and make a complete five-mission game playable before connecting live AI generation.
-
-## How AI supports my project
-
-- **Codex:** idea development, planning, decisions, and documentation
-- **Microphone input:** quickly explaining and refining my ideas through conversation instead of relying only on typed prompts
-- **Image generation:** creating the office-map artwork from my references
-- **Expo:** providing the React Native project, web demonstration environment, file-based routing, and cross-platform components
-- **GitHub Copilot:** helping me write and understand the Expo, React Native, TypeScript, and Flask implementation
-- **Ollama and `gemma3:4b`:** generating new missions inside the finished game
-- **My role:** directing the AI tools, making decisions, checking their work, and combining the results into the final game
-
-## Short presentation summary
-
-> I began with an individual AI-game challenge and used Codex as my planning partner to turn the idea into a clear project plan. During planning, I frequently used the microphone to speak my prompts and refine the idea conversationally instead of typing everything. I chose Expo, React Native, TypeScript, Flask, and a local Ollama model, installed the model, generated the game artwork, and documented the implementation. GitHub Copilot transformed the plan into a six-step roadmap and completed Step 1 by generating the frontend and backend foundations, launcher scripts, fallbacks, and documentation. My next action is to use Copilot to build the playable game in Step 2. My goal is to use AI throughout the process while I direct, review, test, and combine the work.
+> This is my individual game, created by me together with AI. I used the microphone and Codex to turn a rough GTA-style office idea into a plan, chose Expo and React Native so I could learn something new, and used GitHub Copilot to scaffold the first foundation. I installed a local Ollama model and used AI image generation on my office references. When the first playable version felt too plain and multiplayer-focused, I gave the AI screenshots and spoken feedback. We redesigned it as a single-player heist against a fair computer-controlled Boss, integrated the artwork, and tested both live-AI and offline gameplay. I directed and reviewed each decision while AI helped produce and explain the work.

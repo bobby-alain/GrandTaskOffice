@@ -1,98 +1,62 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState } from "react";
+import { ImageBackground, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, View } from "react-native";
+import { useRouter } from "expo-router";
+import { GameButton, ScreenEntrance } from "../components/game-ui";
+import { useGame } from "../GameContext";
+import { COLORS } from "../theme";
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+const background = require("../../assets/game/title-screen-background.png");
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
+export default function TitleScreen() {
+  const router = useRouter();
+  const { dispatch } = useGame();
+  const [playerName, setPlayerName] = useState("");
+
+  const start = () => {
+    dispatch({ type: "START_GAME", payload: { playerName } });
+    router.replace("/map");
+  };
+
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
-
-export default function HomeScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
-
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
-
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
+    <ImageBackground source={background} resizeMode="cover" style={styles.background}>
+      <View style={styles.scrim} />
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.layout}>
+        <ScreenEntrance style={styles.card}>
+          <Text style={styles.eyebrow}>AN OFFICE HEIST COMEDY</Text>
+          <Text style={styles.title}>GRAND{`\n`}TASK OFFICE</Text>
+          <View style={styles.rule} />
+          <Text style={styles.tagline}>STEAL THE FILE. DODGE THE BOSS. ESCAPE BEFORE LOCKDOWN.</Text>
+          <Text style={styles.label}>YOUR HEIST NAME (OPTIONAL)</Text>
+          <TextInput
+            accessibilityLabel="Player name"
+            autoCapitalize="words"
+            maxLength={24}
+            onChangeText={setPlayerName}
+            onSubmitEditing={start}
+            placeholder="Rookie"
+            placeholderTextColor="#78817f"
+            returnKeyType="done"
+            style={styles.input}
+            value={playerName}
           />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+          <GameButton label="START THE HEIST" onPress={start} />
+          <Text style={styles.finePrint}>ONE PLAYER  •  ONE BOSS  •  EIGHT ROUNDS</Text>
+        </ScreenEntrance>
+      </KeyboardAvoidingView>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
-  },
-  title: {
-    textAlign: 'center',
-  },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
-  },
+  background: { flex: 1, minHeight: 620 },
+  scrim: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(3, 10, 12, 0.36)" },
+  layout: { flex: 1, justifyContent: "center", alignItems: "flex-end", padding: 32 },
+  card: { width: "100%", maxWidth: 520, backgroundColor: COLORS.panel, borderWidth: 3, borderColor: COLORS.teal, borderRadius: 12, padding: 30, shadowColor: "#000", shadowOpacity: 0.7, shadowRadius: 18, shadowOffset: { width: 0, height: 12 } },
+  eyebrow: { color: COLORS.gold, fontSize: 13, fontWeight: "900", letterSpacing: 2.5 },
+  title: { color: COLORS.cream, fontSize: 47, lineHeight: 45, fontWeight: "900", letterSpacing: -1, marginVertical: 12, textShadowColor: COLORS.terracottaDark, textShadowOffset: { width: 4, height: 4 }, textShadowRadius: 0 },
+  rule: { height: 5, width: 120, backgroundColor: COLORS.terracotta, marginBottom: 16 },
+  tagline: { color: "white", fontSize: 16, fontWeight: "800", lineHeight: 24, marginBottom: 28 },
+  label: { color: COLORS.gold, fontSize: 11, fontWeight: "900", letterSpacing: 1.2, marginBottom: 7 },
+  input: { minHeight: 56, color: COLORS.cream, backgroundColor: "rgba(255,255,255,0.10)", borderWidth: 2, borderColor: COLORS.teal, borderRadius: 7, paddingHorizontal: 16, fontSize: 19, fontWeight: "700", marginBottom: 14 },
+  finePrint: { color: "#a8b4b1", textAlign: "center", fontSize: 10, fontWeight: "800", letterSpacing: 1.5, marginTop: 16 },
 });

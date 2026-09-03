@@ -1,329 +1,108 @@
-# Grand Task Office — Foundation Setup
+# Grand Task Office
 
-## ✅ What's Ready
+**Grand Task Office** is a short single-player office heist built with Expo, React Native, Flask, and a local Ollama model. You play a rookie operative against a computer-controlled Boss patrol.
 
-This is **Step 1: Foundation** of the Grand Task Office project.
+## Mission
 
-### Frontend ✅
-- **Expo** with default TypeScript template (SDK 57)
-- **React Native** with Expo Router
-- Located in: `./frontend`
+1. Find the keycard in the meeting-room corridor.
+2. Use it to enter the manager's office.
+3. Steal the secret document.
+4. Return to the entrance and escape.
 
-### Backend ✅
-- **Flask** minimal server with one endpoint: `POST /api/mission`
-- **Ollama integration** with fallback missions
-- Python learning comments throughout the code
-- Located in: `./backend`
+You lose when Boss Alert reaches five stars or round eight ends. The deterministic frontend owns these rules; Ollama only writes dialogue, clues, missions, and consequences.
 
-### Support
-- Startup scripts for local development
-- Health check and Ollama test endpoints
+## Start the demo
 
----
+Ollama and `gemma3:4b` are optional because complete fallback missions are included.
 
-## 🚀 Quick Start
-
-### Option 1: Start Both Services Together
 ```bash
-chmod +x start-all.sh
+ollama run gemma3:4b
+```
+
+In another terminal:
+
+```bash
+cd /Users/bobby.inayat/Desktop/GrandTaskOffice
 ./start-all.sh
 ```
 
-This will start:
-1. Flask backend at `http://localhost:5000`
-2. Expo frontend at `http://localhost:8081`
+- Expo Web: `http://localhost:8081`
+- Flask: `http://localhost:5001`
+- Ollama: `http://localhost:11434`
 
-### Option 2: Start Services Separately
+To start services separately, use `./start-frontend.sh` and `./start-backend.sh`.
 
-**Terminal 1 — Backend:**
-```bash
-chmod +x start-backend.sh
-./start-backend.sh
+## Stack
+
+- Expo SDK 57 and React Native 0.86
+- Expo Router for title, map, mission, and ending routes
+- React Context and `useReducer` for the game engine
+- React Native `Animated` for screen entrances, Boss warnings, alert stars, escape glow, and item rewards
+- Flask for a small local API bridge
+- Ollama with `gemma3:4b` for optional generated content
+
+## API
+
+`POST http://localhost:5001/api/mission`
+
+```json
+{
+  "playerName": "Bobby",
+  "location": "Print and utility area",
+  "round": 3,
+  "money": 4,
+  "reputation": 6,
+  "alertLevel": 2,
+  "bossZone": "Print and utility area",
+  "bossEncounter": true,
+  "visitedLocations": ["Open workspace"],
+  "inventory": ["coffee"]
+}
 ```
 
-**Terminal 2 — Frontend:**
-```bash
-chmod +x start-frontend.sh
-./start-frontend.sh
-```
+The response contains `mission`, `source`, exactly three choices, and an optional `bossMessage`. AI output is validated and effects are clamped to `-2...2`. AI-generated keycards and secret documents are discarded; those rewards remain controlled by deterministic missions.
 
----
-
-## 🔧 Backend Setup (Manual)
-
-If you prefer to set up manually:
+Other endpoints:
 
 ```bash
-cd backend
-
-# Create and activate virtual environment
-python3 -m venv venv
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run the Flask app
-python app.py
+curl http://localhost:5001/health
+curl http://localhost:5001/test-ollama
 ```
 
-The backend will start on `http://localhost:5000`
+Set a different backend URL when needed:
 
----
+```bash
+EXPO_PUBLIC_API_URL=http://localhost:5001 npx expo start --web
+```
 
-## 🔧 Frontend Setup (Manual)
+## Project structure
 
-If you prefer to set up manually:
+```text
+GrandTaskOffice/
+├── frontend/
+│   ├── assets/game/             Integrated title, map, and six item images
+│   └── src/
+│       ├── app/                 Expo Router screens
+│       ├── components/game-ui.tsx
+│       ├── GameContext.tsx      Reducer and Boss patrol rules
+│       ├── api.ts               Flask request and validation
+│       ├── sampleMissions.ts    Complete offline missions
+│       └── types.ts
+├── backend/app.py               Flask, Ollama prompt, validation, fallbacks
+├── grand-task-office-project-plan.md
+├── presentation-progress.md
+└── STEP2_SINGLE_PLAYER_COMPLETE.md
+```
+
+## Validation
 
 ```bash
 cd frontend
+npx tsc --noEmit
+npx expo export --platform web
 
-# Install dependencies
-npm install
-
-# Start Expo web dev server
-npx expo start --web
+cd ../backend
+venv/bin/python -m py_compile app.py
 ```
 
-The frontend will start on `http://localhost:8081`
-
----
-
-## 🧪 Testing the Backend
-
-### Health Check
-```bash
-curl http://localhost:5000/health
-```
-
-Expected response:
-```json
-{
-  "status": "ok",
-  "ollama_available": true,
-  "ollama_url": "http://localhost:11434/api/chat",
-  "ollama_model": "gemma3:4b"
-}
-```
-
-### Test Ollama Connection
-```bash
-curl http://localhost:5000/test-ollama
-```
-
-Expected response (if Ollama is running):
-```json
-{
-  "status": "connected",
-  "models": ["gemma3:4b", ...],
-  "gemma3_4b_available": true
-}
-```
-
-### Request a Mission
-```bash
-curl -X POST http://localhost:5000/api/mission \
-  -H "Content-Type: application/json" \
-  -d '{
-    "location": "Coffee and kitchen area",
-    "round": 1,
-    "money": 10,
-    "reputation": 5,
-    "alertLevel": 0,
-    "visitedLocations": [],
-    "inventory": [],
-    "players": ["Alex", "Sam", "Kim"]
-  }'
-```
-
-You should get back a mission with title, situation, and 3 choices.
-
----
-
-## 📋 Backend Endpoints
-
-### `GET /health`
-Health check endpoint. Returns backend status and Ollama availability.
-
-### `GET /test-ollama`
-Test Ollama connection and list available models.
-
-### `POST /api/mission`
-Main gameplay endpoint.
-
-**Request body:**
-```json
-{
-  "location": "string",
-  "round": number,
-  "money": number,
-  "reputation": number,
-  "alertLevel": number,
-  "visitedLocations": string[],
-  "inventory": string[],
-  "players": string[]
-}
-```
-
-**Response:**
-```json
-{
-  "mission": {
-    "title": "string",
-    "situation": "string",
-    "choices": [
-      {
-        "text": "string",
-        "outcome": "string",
-        "moneyChange": number,
-        "reputationChange": number,
-        "alertChange": number,
-        "requiredItem": string | null,
-        "rewardItem": string | null
-      },
-      ...
-    ]
-  },
-  "source": "ollama" | "fallback (reason)"
-}
-```
-
----
-
-## ⚙️ Configuration
-
-### Ollama Settings (in `backend/app.py`)
-- **URL**: `http://localhost:11434/api/chat`
-- **Model**: `gemma3:4b`
-- **Timeout**: 5 seconds
-
-To use a different Ollama URL or model, edit `backend/app.py`:
-```python
-OLLAMA_API_URL = "http://localhost:11434/api/chat"
-OLLAMA_MODEL = "gemma3:4b"
-OLLAMA_TIMEOUT = 5
-```
-
-### Expo Frontend Configuration
-Set the backend URL via environment variable:
-```bash
-export EXPO_PUBLIC_API_URL=http://localhost:5000
-```
-
-For the web demo on a shared screen, use `localhost:5000`.
-For testing on a physical phone, use your Mac's local IP (e.g., `192.168.1.100:5000`).
-
----
-
-## 🧠 Python Learning in This Step
-
-The backend code includes detailed comments explaining:
-
-1. **HTTP Requests** — Making requests to Ollama
-2. **JSON Parsing & Validation** — Handling structured responses
-3. **Configuration & Constants** — Setting up reusable values
-4. **Helper Functions** — Testing connections
-5. **Error Handling** — try/except blocks and fallbacks
-6. **Type Hints** — Python type annotations
-7. **Request/Response Patterns** — Flask and API design
-
-Look for "Python Learning Moment #N" comments in `backend/app.py`.
-
----
-
-## 🎮 Frontend Stack
-
-The Expo frontend includes:
-- **Expo Router** for file-based navigation
-- **React Native** core components (View, Text, Pressable, etc.)
-- **TypeScript** for type safety
-- **Expo Animated API** for object animations (added in Step 5)
-
-No Redux, no third-party UI framework. Keep it simple.
-
----
-
-## 📁 Project Structure
-
-```
-GrandTaskOffice/
-├── frontend/                    # Expo + React Native
-│   ├── src/app/
-│   │   ├── _layout.tsx         # (to create in Step 2)
-│   │   ├── index.tsx           # (to create in Step 2)
-│   │   ├── map.tsx             # (to create in Step 2)
-│   │   ├── mission.tsx         # (to create in Step 2)
-│   │   ├── secret-room.tsx     # (to create in Step 2)
-│   │   └── ending.tsx          # (to create in Step 2)
-│   ├── package.json
-│   └── ...
-├── backend/                     # Flask
-│   ├── app.py                  # Main Flask application
-│   ├── requirements.txt        # Python dependencies
-│   └── venv/                   # (created on first run)
-├── start-all.sh               # Start both services
-├── start-backend.sh           # Start Flask only
-├── start-frontend.sh          # Start Expo only
-├── README.md                  # This file
-└── grand-task-office-project-plan.md
-```
-
----
-
-## ✅ Step 1 Checklist
-
-- [x] Scaffold Expo frontend with TypeScript template
-- [x] Create Flask backend with `/api/mission` endpoint
-- [x] Implement Ollama connection testing
-- [x] Add fallback missions for resilience
-- [x] Create startup scripts
-- [x] Document Python learning concepts
-- [ ] Test both services running together (coming next)
-- [ ] Verify Expo proxy forwarding to Flask (coming next)
-
----
-
-## 🚨 Troubleshooting
-
-### Backend won't start
-- Make sure Python 3.9+ is installed: `python3 --version`
-- Check that port 5000 is not in use: `lsof -i :5000`
-- Ensure all dependencies installed: `pip install -r requirements.txt`
-
-### Ollama connection fails
-- Check that Ollama is running: `ollama serve` (in another terminal)
-- Verify the model is installed: `ollama pull gemma3:4b`
-- Test connectivity: `curl http://localhost:11434/api/tags`
-
-### Frontend won't start
-- Make sure Node.js 18+ is installed: `node --version`
-- Check that port 8081 is not in use: `lsof -i :8081`
-- Clear Expo cache if needed: `npx expo start --web --clear`
-
-### CORS errors in browser
-- Flask CORS is configured to allow localhost
-- Make sure frontend is running on `localhost:8081` (not `127.0.0.1`)
-
----
-
-## 📝 Next Steps
-
-**Step 2: Playable Game** (coming in next phase)
-- Implement title/setup, map, mission, and ending screens with Expo Router
-- Add game reducer with `useReducer`
-- Create sample missions
-- Make a complete 5-mission game playable
-
----
-
-## 📚 Resources
-
-- [Expo Documentation](https://docs.expo.dev/)
-- [React Native Documentation](https://reactnative.dev/docs/getting-started)
-- [Flask Documentation](https://flask.palletsprojects.com/)
-- [Ollama API](https://github.com/ollama/ollama/blob/main/docs/api.md)
-
----
-
-**Created:** September 2, 2026  
-**Status:** Step 1 — Foundation ✅
+The visual identity is an original retro crime-comedy treatment. It does not copy GTA logos, fonts, characters, maps, or artwork.

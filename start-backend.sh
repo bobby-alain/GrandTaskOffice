@@ -5,7 +5,7 @@ echo "========================================="
 echo "Starting Grand Task Office — Flask Backend"
 echo "========================================="
 echo ""
-echo "Backend will run on: http://localhost:5000"
+echo "Backend will run on: http://localhost:5001"
 echo "Press Ctrl+C to stop"
 echo ""
 
