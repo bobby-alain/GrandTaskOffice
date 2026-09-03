@@ -54,8 +54,13 @@ export default function MapScreen() {
       <ScreenEntrance>
         <Hud state={state} />
         <View style={styles.briefing}>
-          <View style={styles.objectiveBlock}><Text style={styles.kicker}>CURRENT OBJECTIVE</Text><Text style={styles.objective}>{objective(state.inventory)}</Text></View>
+          <View style={styles.objectiveBlock}><Text style={styles.kicker}>PRIMARY HEIST OBJECTIVE</Text><Text style={styles.objective}>{objective(state.inventory)}</Text></View>
           <View style={styles.clueBlock}><Text style={styles.kicker}>BOSS PATROL CLUE</Text><Text style={styles.clue}>“{state.bossClue}”</Text></View>
+        </View>
+        <View style={styles.howToPlay}>
+          <Text style={styles.howToPlayTitle}>YOUR MOVE</Text>
+          <Text style={styles.howToPlayText}>Choose any unlocked zone below. Every visit starts a mission. Avoid the zone suggested by the Boss clue—or risk another alert star.</Text>
+          <Text style={styles.aiText}>LOCAL AI: OLLAMA WRITES NORMAL AND BOSS MISSIONS WHEN RUNNING • OFFLINE MISSIONS ARE ALWAYS READY</Text>
         </View>
         <View style={styles.mapFrame}>
           <ImageBackground source={mapArt} resizeMode="cover" style={styles.map} imageStyle={styles.mapImage}>
@@ -100,6 +105,10 @@ const styles = StyleSheet.create({
   kicker: { color: COLORS.gold, fontSize: 10, fontWeight: "900", letterSpacing: 1.4 },
   objective: { color: "white", fontSize: 17, fontWeight: "900", marginTop: 4 },
   clue: { color: COLORS.cream, fontSize: 14, fontStyle: "italic", marginTop: 4 },
+  howToPlay: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 10, backgroundColor: "rgba(13,143,138,0.22)", borderWidth: 1, borderColor: COLORS.teal, paddingVertical: 9, paddingHorizontal: 12 },
+  howToPlayTitle: { color: COLORS.gold, fontSize: 12, fontWeight: "900", letterSpacing: 1.3 },
+  howToPlayText: { color: "white", fontSize: 12, fontWeight: "700", flex: 1, minWidth: 300 },
+  aiText: { color: "#89d9d1", fontSize: 9, fontWeight: "900", letterSpacing: 0.5, width: "100%" },
   mapFrame: { width: "100%", aspectRatio: 1.5, borderWidth: 4, borderColor: COLORS.teal, backgroundColor: "#0a1112", shadowColor: "#000", shadowOpacity: 0.7, shadowRadius: 14, shadowOffset: { width: 0, height: 8 } },
   map: { flex: 1 },
   mapImage: { opacity: 0.92 },
