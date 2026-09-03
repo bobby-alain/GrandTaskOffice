@@ -5,7 +5,7 @@ The unfinished multiplayer Step 2 has been refactored into the intended one-play
 ## Delivered
 
 - Optional single name and **START THE HEIST** title screen
-- Illustrated office map with six responsive hotspots
+- Illustrated office map with three large responsive hotspots
 - Deterministic non-repeating Boss patrol and a clue each round
 - Immediate Boss encounter alert
 - Keycard → locked manager office → secret document → glowing exit progression

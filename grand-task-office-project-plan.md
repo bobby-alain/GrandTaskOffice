@@ -14,7 +14,7 @@ The game remains fully playable when Ollama is offline.
 
 1. Enter an optional player name; blank becomes **Rookie**.
 2. Read a clue about the Boss's current patrol zone.
-3. Pick one of six hotspots on the illustrated office map.
+3. Pick one of three large hotspots on the illustrated office map.
 4. Resolve one mission with exactly three choices.
 5. Collect items and manage money, reputation, and Boss Alert.
 6. The Boss moves after the round and never immediately repeats a zone.
@@ -22,7 +22,7 @@ The game remains fully playable when Ollama is offline.
 
 ## Heist progression
 
-- The meeting-room corridor contains the deterministic keycard mission.
+- The open workspace contains the deterministic keycard mission.
 - The manager's office is locked until the keycard is owned.
 - The manager mission can award the secret document.
 - With both required items, the entrance becomes a glowing **ESCAPE** hotspot.
@@ -30,7 +30,7 @@ The game remains fully playable when Ollama is offline.
 - Five alert stars produces **Busted by the Boss**.
 - Finishing round eight produces **Office Lockdown**.
 
-Coffee, laptop, stapler, and cinnamon bun remain optional helper items. They unlock special choices and humorous achievements.
+Coffee, laptop, stapler, and cinnamon bun remain optional helper items inside the three main locations. They unlock special choices and humorous achievements.
 
 ## Fair computer opponent
 
@@ -38,16 +38,19 @@ The frontend reducer selects the Boss patrol using the player name, round, and p
 
 Ollama can write Boss dialogue, clues, situations, and consequences. It cannot select patrol zones, award the required heist items, change statistics outside the validated range, change round limits, or decide an ending.
 
+Each non-critical visit supplies Ollama with a rotating location-and-round theme. This creates fresh side missions without giving the model control over the heist rules. The interface identifies live Ollama missions and silently keeps the instant fallback if generation fails.
+
 ## Visual design
 
 - Original retro crime-comedy presentation inspired by the energy of classic crime games
 - Full-screen illustrated title background and actual illustrated office map
-- Six responsive, keyboard-accessible map hotspots
+- Three large, responsive, keyboard-accessible map hotspots
 - Terracotta, teal, gold, cream, and charcoal palette
 - Dark translucent panels and heavy uppercase headings with outlines/shadows
 - Arcade buttons at least 56 px high
 - HUD for round, cash, reputation, inventory, objective, and five alert stars
 - Animated screen entrances, Boss warning shake, star pulse, escape glow, and item acquisition
+- Original looping hip-hop-inspired heist music, a persistent accessible mute control, and a victory sting/celebration
 - No copied GTA logos, fonts, characters, or artwork
 
 ## State and API
@@ -71,13 +74,14 @@ The Flask request contains player and map context, including `bossZone` and `bos
 - Added deterministic patrol, clues, alert encounters, eight-round limit, and three endings
 - Integrated generated title/map art and six cropped inventory icons
 - Added keycard → manager office → document → escape progression
+- Simplified the map from six locations to three: Open Workspace, Manager's Office, and Entrance/Lifts
 - Added offline-complete missions, live Ollama requests, animations, and responsive arcade UI
 
 ### Step 3 — Playtest and polish
 
 - Run the complete heist several times with Ollama on and off
 - Tune hotspot positions, mission length, difficulty, and laptop scaling
-- Add only lightweight sound if presentation time allows
+- Verify music volume and victory audio on the presentation laptop
 
 ### Step 4 — Demonstration
 

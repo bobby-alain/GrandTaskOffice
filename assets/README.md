@@ -2,7 +2,7 @@
 
 ## Assets
 
-- `office-map.png` — main interactive office-map background; place responsive hotspot buttons over the six visible zones.
+- `office-map.png` — main interactive office-map background; place three large responsive hotspot buttons over the starting locations.
 - `title-screen-background.png` — title/setup screen background; render the game title, tagline, fields, and button in React rather than inside the image.
 - `item-icons-sprite.png` — transparent 3 × 2 collectible-object sprite sheet.
 

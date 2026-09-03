@@ -9,16 +9,67 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": ["http://localhost:8081", "http://127.0.0.1:8081"]}})
+CORS(app, resources={r"/api/*": {"origins": re.compile(r"http://(localhost|127\.0\.0\.1):\d+")}})
 
 OLLAMA_API_URL = "http://localhost:11434/api/chat"
 OLLAMA_MODEL = "gemma3:4b"
-OLLAMA_TIMEOUT = 8
+OLLAMA_TIMEOUT = 25
 
 VALID_ITEMS = {"cinnamon_bun", "coffee", "laptop", "keycard", "stapler", "secret_document"}
 VALID_ZONES = {
-    "Entrance and lifts", "Open workspace", "Meeting-room corridor",
-    "Coffee and kitchen area", "Print and utility area", "Manager/drop-in office",
+    "Entrance and lifts", "Open workspace", "Manager/drop-in office",
+}
+
+MISSION_THEMES = {
+    "Entrance and lifts": [
+        "a suspicious delivery and the receptionist",
+        "an elevator that stops on the wrong floor",
+        "a security guard checking visitor badges",
+        "a ridiculous lobby distraction",
+    ],
+    "Open workspace": [
+        "a noisy printer disaster",
+        "an unattended laptop with a strange notification",
+        "a coffee emergency during a serious meeting",
+        "a rolling office chair escape",
+    ],
+    "Manager/drop-in office": [
+        "a locked drawer with an embarrassing secret",
+        "a suspicious video call on the manager's screen",
+        "a trophy cabinet hiding office contraband",
+        "a motion-sensitive executive desk",
+    ],
+}
+
+AI_ITEM_VALUES = [None, "cinnamon_bun", "coffee", "laptop", "stapler"]
+MISSION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "title": {"type": "string", "maxLength": 60},
+        "situation": {"type": "string", "maxLength": 220},
+        "bossMessage": {"type": "string", "maxLength": 120},
+        "choices": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string", "maxLength": 80},
+                    "outcome": {"type": "string", "maxLength": 150},
+                    "moneyChange": {"type": "integer", "minimum": -2, "maximum": 2},
+                    "reputationChange": {"type": "integer", "minimum": -2, "maximum": 2},
+                    "alertChange": {"type": "integer", "minimum": -2, "maximum": 2},
+                    "requiredItem": {"enum": AI_ITEM_VALUES},
+                    "rewardItem": {"enum": AI_ITEM_VALUES},
+                },
+                "required": ["text", "outcome", "moneyChange", "reputationChange", "alertChange", "requiredItem", "rewardItem"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["title", "situation", "choices"],
+    "additionalProperties": False,
 }
 
 
@@ -52,8 +103,8 @@ FALLBACKS = {
         ],
     },
     "keycard": {
-        "title": "Keycard in Conference",
-        "situation": "A forgotten visitor badge glows beneath a meeting-room chair.",
+        "title": "Keycard in the Open",
+        "situation": "A forgotten keycard glows beneath a meeting table inside the open workspace.",
         "choices": [
             choice("Slide under the table and take it", "A graceful tactical roll earns you the keycard.", reward="keycard"),
             choice("Wait for the room to clear", "You wait too long and security collects it."),
@@ -86,7 +137,7 @@ def select_fallback(context: Dict[str, Any]) -> Dict[str, Any]:
     inventory = context.get("inventory", [])
     if context.get("bossEncounter") is True:
         return FALLBACKS["boss"]
-    if context.get("location") == "Meeting-room corridor" and "keycard" not in inventory:
+    if context.get("location") == "Open workspace" and "keycard" not in inventory:
         return FALLBACKS["keycard"]
     if context.get("location") == "Manager/drop-in office" and "secret_document" not in inventory:
         return FALLBACKS["document"]
@@ -129,7 +180,8 @@ def validate_mission(data: Any) -> tuple[bool, str]:
             value = item.get(field)
             item[field] = value if value in VALID_ITEMS else None
         if item["requiredItem"] and item["rewardItem"]:
-            return False, f"Choice {index} cannot require and reward an item"
+            # Prefer a usable item-gated choice over rejecting the whole AI mission.
+            item["rewardItem"] = None
     return True, ""
 
 
@@ -161,13 +213,19 @@ Each choice needs text, outcome, moneyChange, reputationChange, alertChange, req
 Effects must be integers from -2 to 2. Valid items: cinnamon_bun, coffee, laptop, stapler.
 Never award keycard or secret_document. Never change rules, round limits, Boss location, or endings.
 Do not mention real companies, GTA characters, logos, fonts, or confidential information."""
-    user_prompt = f"""Create one mission from this public game state:
+    themes = MISSION_THEMES[context["location"]]
+    theme = themes[(int(context.get("round", 1)) - 1) % len(themes)]
+    user_prompt = f"""Create one NEW mission from this public game state:
 Player: {context.get('playerName', 'Rookie')}
 Location: {context['location']}
 Round: {context.get('round', 1)}/8
 Money: {context.get('money', 0)}; Reputation: {context.get('reputation', 0)}; Alert: {context.get('alertLevel', 0)}/5
 Boss zone: {context.get('bossZone')}; Boss encounter: {context.get('bossEncounter', False)}
 Visited: {context.get('visitedLocations', [])}; Inventory: {context.get('inventory', [])}
+Creative theme for this round: {theme}
+Make the situation and all outcomes different from generic keycard or secret-document missions.
+Keep every sentence short enough to fit a phone screen.
+Follow this JSON schema exactly: {json.dumps(MISSION_SCHEMA)}
 If this is a Boss encounter, include one funny bossMessage."""
 
     try:
@@ -175,13 +233,19 @@ If this is a Boss encounter, include one funny bossMessage."""
             "model": OLLAMA_MODEL,
             "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
             "stream": False,
-            "format": "json",
+            "format": MISSION_SCHEMA,
+            "keep_alive": "10m",
+            "options": {"temperature": 0.4, "num_predict": 420},
         }, timeout=OLLAMA_TIMEOUT)
         response.raise_for_status()
         generated = extract_json(response.json().get("message", {}).get("content", ""))
         valid, error = validate_mission(generated)
         if not valid:
             return jsonify({"mission": fallback, "source": f"fallback (invalid AI response: {error})"})
+        inventory = set(context.get("inventory", []))
+        if not any(item["requiredItem"] is None or item["requiredItem"] in inventory for item in generated["choices"]):
+            # An AI mission must never lock the player out of every choice.
+            generated["choices"][0]["requiredItem"] = None
         return jsonify({"mission": generated, "source": "ollama"})
     except (requests.RequestException, ValueError, TypeError, json.JSONDecodeError) as exc:
         return jsonify({"mission": fallback, "source": f"fallback ({type(exc).__name__})"})

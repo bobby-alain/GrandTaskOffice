@@ -12,6 +12,10 @@
 8. **Redesigned the game with Codex** — Together we converted the concept into a single-player heist: find the keycard, steal the document, dodge a patrolling Boss, and escape before five alert stars or eight rounds.
 9. **Implemented the redesigned Step 2** — AI refactored the reducer, integrated the generated graphics, cropped the item sprite sheet, created map hotspots and large arcade controls, added the Boss opponent and three endings, updated Flask/Ollama, and kept complete offline fallbacks.
 10. **Validated the result** — TypeScript, Expo Web export, Python syntax, API fallback routes, deterministic patrol, progression, endings, and restart are checked before presentation.
+11. **Simplified after playtesting** — The first map had six locations and felt too busy on a phone. I asked AI to reduce it to three clear locations while preserving the complete keycard → document → escape game loop.
+12. **Expanded local-AI variety** — I kept the critical heist steps deterministic, then used Ollama to generate fresh side missions and Boss encounters from rotating location-and-round themes. The game visibly labels missions created by the local model.
+13. **Added sound and a stronger ending** — AI generated an original local retro loop and victory sting, connected them through Expo Audio, enlarged the phone text, and redesigned the winning screen so the celebration and Play Again button both fit.
+14. **Tuned the soundtrack after feedback** — I asked AI to replace the arcade-like loop with an original 92 BPM hip-hop-inspired office-heist beat and keep a large safe-area MUSIC/MUTED control visible on every screen.
 
 ## How the AI roles fit together
 

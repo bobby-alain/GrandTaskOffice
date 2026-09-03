@@ -13,14 +13,14 @@ function isMission(value: unknown): value is Mission {
 }
 
 export async function requestMission(state: GameState, location: OfficeZone): Promise<Mission | null> {
-  if ((location === "Meeting-room corridor" && !state.inventory.includes("keycard")) || (location === "Manager/drop-in office" && !state.inventory.includes("secret_document"))) return null;
+  if ((location === "Open workspace" && !state.inventory.includes("keycard")) || (location === "Manager/drop-in office" && !state.inventory.includes("secret_document"))) return null;
   const payload: MissionRequestPayload = { playerName: state.playerName, location, round: state.round, money: state.money, reputation: state.reputation, alertLevel: state.alertLevel, bossZone: state.bossZone, bossEncounter: state.bossEncounter, visitedLocations: state.visitedZones, inventory: state.inventory };
   try {
     const response = await fetch(`${API_URL}/api/mission`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (!response.ok) return null;
     const data = (await response.json()) as MissionResponsePayload;
     if (!isMission(data.mission)) return null;
-    return { ...data.mission, choices: data.mission.choices.map((choice) => ({ ...choice,
+    return { ...data.mission, generationSource: data.source === "ollama" ? "ollama" : "fallback", choices: data.mission.choices.map((choice) => ({ ...choice,
       moneyChange: Math.max(-2, Math.min(2, choice.moneyChange)), reputationChange: Math.max(-2, Math.min(2, choice.reputationChange)), alertChange: Math.max(-2, Math.min(2, choice.alertChange)),
       rewardItem: choice.rewardItem === "keycard" || choice.rewardItem === "secret_document" ? null : choice.rewardItem,
     })) };
