@@ -1,14 +1,21 @@
 {
   "expo": {
-    "name": "frontend",
-    "slug": "frontend",
+    "name": "Grand Task Office",
+    "slug": "grand-task-office",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "landscape",
     "icon": "./assets/images/icon.png",
     "scheme": "frontend",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "Grand Task Office connects to the local Flask and Ollama services during development.",
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        }
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -28,7 +35,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#171B1C",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }

@@ -34,6 +34,24 @@ cd /Users/bobby.inayat/Desktop/GrandTaskOffice
 
 To start services separately, use `./start-frontend.sh` and `./start-backend.sh`.
 
+## Run in the iOS Simulator
+
+The VS Code emulator extension is only a launcher; Apple Xcode provides the actual simulator. On the Mac:
+
+1. Install full **Xcode** from the Mac App Store and open it once.
+2. In **Xcode → Settings → Locations**, select the newest Command Line Tools version.
+3. In **Xcode → Settings → Components**, install an iOS Simulator runtime.
+4. Reopen VS Code in the `GrandTaskOffice` folder.
+5. Run **Terminal → Run Build Task → Grand Task Office: Run iOS Simulator**, or execute:
+
+```bash
+./start-ios.sh
+```
+
+The script starts Flask, starts Expo with `http://127.0.0.1:5001` as the local API, and opens the most recently used simulator. The Expo app is configured for landscape on iPhone and iPad.
+
+You can also use the installed extension with `Cmd+Shift+P` → **Emulator: View iOS simulators**, then run `npm run ios` from `frontend/`.
+
 ## Stack
 
 - Expo SDK 57 and React Native 0.86

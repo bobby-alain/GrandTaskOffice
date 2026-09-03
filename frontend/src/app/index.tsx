@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ImageBackground, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, View } from "react-native";
+import { ImageBackground, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { GameButton, ScreenEntrance } from "../components/game-ui";
 import { useGame } from "../GameContext";
@@ -25,8 +25,9 @@ export default function TitleScreen() {
       imageStyle={styles.backgroundImage}
     >
       <View style={styles.scrim} />
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.layout}>
-        <ScreenEntrance style={styles.card}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.keyboardArea}>
+        <ScrollView contentContainerStyle={styles.layout} keyboardShouldPersistTaps="handled">
+          <ScreenEntrance style={styles.card}>
           <Text style={styles.eyebrow}>AN OFFICE HEIST COMEDY</Text>
           <Text style={styles.title}>GRAND{`\n`}TASK OFFICE</Text>
           <View style={styles.rule} />
@@ -52,7 +53,8 @@ export default function TitleScreen() {
           />
           <GameButton label="START THE HEIST" onPress={start} />
           <Text style={styles.finePrint}>ONE PLAYER  •  ONE BOSS  •  EIGHT ROUNDS</Text>
-        </ScreenEntrance>
+          </ScreenEntrance>
+        </ScrollView>
       </KeyboardAvoidingView>
     </ImageBackground>
   );
@@ -62,7 +64,8 @@ const styles = StyleSheet.create({
   background: { flex: 1, width: "100%", minHeight: "100%", alignSelf: "stretch", backgroundColor: COLORS.charcoal },
   backgroundImage: { width: "100%", height: "100%" },
   scrim: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(3, 10, 12, 0.36)" },
-  layout: { flex: 1, justifyContent: "center", alignItems: "flex-end", padding: 32 },
+  keyboardArea: { flex: 1 },
+  layout: { flexGrow: 1, width: "100%", justifyContent: "center", alignItems: "flex-end", padding: 32 },
   card: { width: "100%", maxWidth: 520, backgroundColor: COLORS.panel, borderWidth: 3, borderColor: COLORS.teal, borderRadius: 12, padding: 30, shadowColor: "#000", shadowOpacity: 0.7, shadowRadius: 18, shadowOffset: { width: 0, height: 12 } },
   eyebrow: { color: COLORS.gold, fontSize: 13, fontWeight: "900", letterSpacing: 2.5 },
   title: { color: COLORS.cream, fontSize: 47, lineHeight: 45, fontWeight: "900", letterSpacing: -1, marginVertical: 12, textShadowColor: COLORS.terracottaDark, textShadowOffset: { width: 4, height: 4 }, textShadowRadius: 0 },
